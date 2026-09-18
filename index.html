@@ -1,0 +1,324 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>تقويم التدريب التشغيلي للفروع</title>
+  <style>
+    :root {
+      --primary: #1b5e20;
+      --primary-light: #e8f5e9;
+      --danger: #d32f2f;
+      --danger-bg: #ffebee;
+      --bg: #f4f6f9;
+      --card: #ffffff;
+      --text: #2c3e50;
+      --gray: #95a5a6;
+    }
+    * { box-sizing: border-box; font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; }
+    body { background-color: var(--bg); color: var(--text); margin: 0; padding: 15px; }
+    .header {
+      display: flex; justify-content: space-between; align-items: center;
+      background: var(--card); padding: 15px 25px; border-radius: 12px;
+      box-shadow: 0 4px 6px rgba(0,0,0,0.05); margin-bottom: 20px;
+    }
+    .header h2 { margin: 0; font-size: 1.4rem; color: var(--primary); }
+    .nav-btns button {
+      background: var(--primary); color: white; border: none; padding: 8px 16px;
+      border-radius: 8px; cursor: pointer; font-weight: bold; margin: 0 4px;
+    }
+    .nav-btns button:hover { opacity: 0.9; }
+    .legend {
+      display: flex; gap: 15px; background: var(--card); padding: 10px 20px;
+      border-radius: 8px; margin-bottom: 15px; font-size: 0.9rem;
+    }
+    .legend-item { display: flex; align-items: center; gap: 6px; }
+    .dot { width: 14px; height: 14px; border-radius: 4px; display: inline-block; }
+    .dot.open { background: #2ecc71; }
+    .dot.closed { background: #e74c3c; }
+    .calendar-grid {
+      display: grid; grid-template-columns: repeat(7, 1fr); gap: 10px;
+    }
+    .weekday-header {
+      background: #34495e; color: white; text-align: center;
+      padding: 10px 5px; font-weight: bold; border-radius: 6px; font-size: 0.9rem;
+    }
+    .day-cell {
+      min-height: 110px; background: var(--card); border-radius: 8px;
+      padding: 8px; border: 1px solid #e0e0e0; display: flex;
+      flex-direction: column; position: relative; transition: 0.2s;
+    }
+    .day-number { font-weight: bold; font-size: 1.1rem; margin-bottom: 4px; }
+    .day-cell.closed {
+      background: var(--danger-bg); border-color: #ffcdd2; cursor: not-allowed;
+    }
+    .day-cell.closed .reason {
+      font-size: 0.75rem; color: var(--danger); margin-top: auto; font-weight: bold;
+    }
+    .day-cell.open {
+      cursor: pointer; border-right: 4px solid #2ecc71;
+    }
+    .day-cell.open:hover { transform: translateY(-2px); box-shadow: 0 4px 10px rgba(0,0,0,0.08); }
+    .plan-preview {
+      font-size: 0.8rem; background: var(--primary-light); color: var(--primary);
+      padding: 4px 6px; border-radius: 4px; margin-top: 4px; overflow: hidden;
+      text-overflow: ellipsis; white-space: nowrap; border-right: 2px solid var(--primary);
+    }
+    /* نافذة المودال لكتابة التدريب */
+    .modal {
+      display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%;
+      background: rgba(0,0,0,0.5); justify-content: center; align-items: center; z-index: 100;
+    }
+    .modal-content {
+      background: white; padding: 25px; border-radius: 12px; width: 90%; max-width: 480px;
+    }
+    .modal-content h3 { margin-top: 0; color: var(--primary); }
+    .modal-content textarea {
+      width: 100%; height: 100px; padding: 10px; border-radius: 8px;
+      border: 1px solid #ccc; resize: none; font-size: 0.95rem; margin-bottom: 12px;
+    }
+    .modal-content input {
+      width: 100%; padding: 10px; border-radius: 8px; border: 1px solid #ccc;
+      font-size: 0.95rem; margin-bottom: 12px;
+    }
+    .modal-actions { display: flex; justify-content: flex-end; gap: 10px; }
+    .btn-save { background: var(--primary); color: white; border: none; padding: 8px 18px; border-radius: 6px; cursor: pointer; }
+    .btn-cancel { background: #7f8c8d; color: white; border: none; padding: 8px 18px; border-radius: 6px; cursor: pointer; }
+    .btn-del { background: var(--danger); color: white; border: none; padding: 8px 18px; border-radius: 6px; cursor: pointer; margin-right: auto; }
+    @media print {
+      .header button, .legend { display: none; }
+      body { background: white; padding: 0; }
+    }
+  </style>
+</head>
+<body>
+
+  <div class="header">
+    <div class="nav-btns">
+      <button onclick="changeMonth(-1)">&#9654; الشهر السابق</button>
+      <button onclick="changeMonth(1)">الشهر التالي &#9664;</button>
+    </div>
+    <h2 id="currentMonthYear"></h2>
+    <div>
+      <button onclick="window.print()" style="background:#2980b9; color:white; border:none; padding:8px 15px; border-radius:8px; cursor:pointer; font-weight:bold;">طباعة الخطة 🖨️</button>
+    </div>
+  </div>
+
+  <div class="legend">
+    <div class="legend-item"><span class="dot open"></span> يوم متاح للتدريب (أحد، إثنين، ثلاثاء، أربعاء) - اضغط للتسجيل</div>
+    <div class="legend-item"><span class="dot closed"></span> مستبعد (خميس، جمعة، سبت، رمضان، أعياد وإفطارات، إجازات رسمية)</div>
+  </div>
+
+  <div class="calendar-grid" id="calendarHeader">
+    <div class="weekday-header">الأحد</div>
+    <div class="weekday-header">الإثنين</div>
+    <div class="weekday-header">الثلاثاء</div>
+    <div class="weekday-header">الأربعاء</div>
+    <div class="weekday-header" style="background:#c0392b;">الخميس (ذروة)</div>
+    <div class="weekday-header" style="background:#c0392b;">الجمعة (ذروة)</div>
+    <div class="weekday-header" style="background:#c0392b;">السبت (ذروة)</div>
+  </div>
+
+  <div class="calendar-grid" id="calendarBody" style="margin-top: 10px;"></div>
+
+  <!-- نافذة تسجيل التدريب -->
+  <div class="modal" id="eventModal">
+    <div class="modal-content">
+      <h3 id="modalDateTitle">تسجيل تدريب اليوم</h3>
+      <label style="font-size:0.85rem; font-weight:bold;">عنوان وموضوع التدريب:</label>
+      <input type="text" id="eventTitle" placeholder="مثال: ورشة الإدارة / مهارات البيع الإيحائي...">
+      <label style="font-size:0.85rem; font-weight:bold;">الفئة المستهدفة / تفاصيل التدريب:</label>
+      <textarea id="eventDesc" placeholder="مثال: شيف المطبخ والشواية - قياس نسب الهادر وضبط الجودة..."></textarea>
+      <div class="modal-actions">
+        <button class="btn-del" onclick="deletePlan()">حذف</button>
+        <button class="btn-cancel" onclick="closeModal()">إلغاء</button>
+        <button class="btn-save" onclick="savePlan()">حفظ التكليف</button>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    // الإجازات والمواسم الرسمية والدينية المستبعدة (محدثة لـ 2026 و 2027)
+    const blackoutDates = {
+      // 2026
+      "2026-10-06": "عيد 6 أكتوبر",
+      "2026-10-08": "عطلة 6 أكتوبر البديلة",
+      "2026-12-31": "رأس السنة الميلادية",
+
+      // 2027
+      "2027-01-06": "وقفة عيد الميلاد",
+      "2027-01-07": "عيد الميلاد المجيد",
+      "2027-01-10": "موسم إفطار الميلاد",
+      "2027-01-11": "موسم إفطار الميلاد",
+      "2027-01-12": "موسم إفطار الميلاد",
+      "2027-01-13": "موسم إفطار الميلاد",
+      "2027-01-25": "عيد الشرطة وثورة يناير",
+      "2027-04-25": "عيد تحرير سيناء",
+      "2027-04-26": "أسبوع الآلام",
+      "2027-04-27": "أسبوع الآلام",
+      "2027-04-28": "أسبوع الآلام",
+      "2027-04-29": "خميس العهد",
+      "2027-04-30": "الجمعة العظيمة",
+      "2027-05-01": "عيد العمال / سبت النور",
+      "2027-05-02": "عيد القيامة المجيد",
+      "2027-05-03": "شم النسيم",
+      "2027-05-04": "موسم إفطار القيامة",
+      "2027-05-05": "موسم إفطار القيامة",
+      "2027-05-06": "موسم إفطار القيامة",
+      "2027-06-06": "رأس السنة الهجرية",
+      "2027-06-30": "ثورة 30 يونيو",
+      "2027-07-22": "عطلة 23 يوليو",
+      "2027-08-17": "المولد النبوي الشريف",
+      "2027-08-22": "عيد العذراء وموسم إفطار",
+      "2027-08-23": "موسم إفطار العذراء",
+      "2027-08-24": "موسم إفطار العذراء",
+      "2027-10-06": "عيد 6 أكتوبر",
+      "2027-10-07": "عطلة رسمية بديلة",
+      "2027-12-31": "رأس السنة الميلادية"
+    };
+
+    // نطاقات مستبعدة كاملة (رمضان والأعياد 2027)
+    const blackoutRanges = [
+      { start: "2027-02-08", end: "2027-03-13", reason: "شهر رمضان المبارك وعيد الفطر" },
+      { start: "2027-05-16", end: "2027-05-20", reason: "عيد الأضحى المبارك" }
+    ];
+
+    let currentDate = new Date(2026, 9, 1); // يبدأ من أكتوبر 2026
+    let selectedDateKey = null;
+
+    function renderCalendar() {
+      const year = currentDate.getFullYear();
+      const month = currentDate.getMonth();
+
+      const monthNames = ["يناير", "فبراير", "مارس", "أبريل", "مايو", "يونيو", "يوليو", "أغسطس", "سبتمبر", "أكتوبر", "نوفمبر", "ديسمبر"];
+      document.getElementById("currentMonthYear").innerText = `${monthNames[month]} ${year}`;
+
+      const calendarBody = document.getElementById("calendarBody");
+      calendarBody.innerHTML = "";
+
+      const firstDay = new Date(year, month, 1).getDay(); // 0 = الأحد
+      const totalDays = new Date(year, month + 1, 0).getDate();
+
+      // مساحات فارغة قبل اليوم الأول
+      for (let i = 0; i < firstDay; i++) {
+        const emptyCell = document.createElement("div");
+        emptyCell.className = "day-cell";
+        emptyCell.style.background = "transparent";
+        emptyCell.style.border = "none";
+        calendarBody.appendChild(emptyCell);
+      }
+
+      // رسم الأيام
+      for (let day = 1; day <= totalDays; day++) {
+        const d = new Date(year, month, day);
+        const dayOfWeek = d.getDay(); // 0 = أحد, 4 = خميس, 5 = جمعة, 6 = سبت
+        const dateKey = `${year}-${String(month + 1).padStart(2, '0')}-${String(day).padStart(2, '0')}`;
+
+        const cell = document.createElement("div");
+        cell.className = "day-cell";
+
+        let isBlocked = false;
+        let blockReason = "";
+
+        // 1. فحص نهاية الأسبوع (خميس، جمعة، سبت)
+        if (dayOfWeek === 4 || dayOfWeek === 5 || dayOfWeek === 6) {
+          isBlocked = true;
+          blockReason = "ذروة تشغيلية (ويك إند)";
+        }
+
+        // 2. فحص النطاقات المستبعدة (رمضان وعيد الفطر وعيد الأضحى)
+        for (let range of blackoutRanges) {
+          if (dateKey >= range.start && dateKey <= range.end) {
+            isBlocked = true;
+            blockReason = range.reason;
+            break;
+          }
+        }
+
+        // 3. فحص التواريخ المحددة (الأعياد والإفطارات والإجازات الرسمية)
+        if (blackoutDates[dateKey]) {
+          isBlocked = true;
+          blockReason = blackoutDates[dateKey];
+        }
+
+        if (isBlocked) {
+          cell.classList.add("closed");
+          cell.innerHTML = `
+            <div class="day-number">${day}</div>
+            <div class="reason">⛔ ${blockReason}</div>
+          `;
+        } else {
+          cell.classList.add("open");
+          cell.onclick = () => openModal(dateKey, day, monthNames[month], year);
+
+          // قراءة البيانات المخزنة لهذا اليوم
+          const savedData = localStorage.getItem("plan_" + dateKey);
+          let planHtml = "";
+          if (savedData) {
+            const plan = JSON.parse(savedData);
+            planHtml = `
+              <div class="plan-preview" title="${plan.title} - ${plan.desc}">
+                📌 <b>${plan.title}</b>
+              </div>
+            `;
+          }
+
+          cell.innerHTML = `
+            <div class="day-number" style="color:var(--primary);">${day} 🟢</div>
+            ${planHtml}
+          `;
+        }
+
+        calendarBody.appendChild(cell);
+      }
+    }
+
+    function changeMonth(delta) {
+      currentDate.setMonth(currentDate.getMonth() + delta);
+      renderCalendar();
+    }
+
+    function openModal(dateKey, day, monthName, year) {
+      selectedDateKey = dateKey;
+      document.getElementById("modalDateTitle").innerText = `تسجيل خطة يوم: ${day} ${monthName} ${year}`;
+      const savedData = localStorage.getItem("plan_" + dateKey);
+      if (savedData) {
+        const plan = JSON.parse(savedData);
+        document.getElementById("eventTitle").value = plan.title || "";
+        document.getElementById("eventDesc").value = plan.desc || "";
+      } else {
+        document.getElementById("eventTitle").value = "";
+        document.getElementById("eventDesc").value = "";
+      }
+      document.getElementById("eventModal").style.display = "flex";
+    }
+
+    function closeModal() {
+      document.getElementById("eventModal").style.display = "none";
+    }
+
+    function savePlan() {
+      const title = document.getElementById("eventTitle").value.trim();
+      const desc = document.getElementById("eventDesc").value.trim();
+      if (!title) {
+        alert("يرجى إدخال عنوان التدريب على الأقل!");
+        return;
+      }
+      localStorage.setItem("plan_" + selectedDateKey, JSON.stringify({ title, desc }));
+      closeModal();
+      renderCalendar();
+    }
+
+    function deletePlan() {
+      if (confirm("هل تريد حذف الخطة المسجلة لهذا اليوم؟")) {
+        localStorage.removeItem("plan_" + selectedDateKey);
+        closeModal();
+        renderCalendar();
+      }
+    }
+
+    // بدء التشغيل
+    renderCalendar();
+  </script>
+</body>
+</html>
